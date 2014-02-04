@@ -1,0 +1,805 @@
+<html><head>
+
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+<title>Karma Model (Casey Edition)</title>
+
+
+
+<script id="shader-vs" type="x-shader/x-vertex"> 
+
+  attribute vec3 aPos;
+  attribute vec2 aTexCoord;
+  attribute vec2 bTexCoord;
+  varying   vec2 vTexCoord;
+  varying   vec2 uTexCoord;
+
+void main(void) {
+
+   gl_Position = vec4(aPos, 1.);
+   vTexCoord = aTexCoord;
+   uTexCoord = bTexCoord;
+
+}
+
+</script> 
+
+
+
+<script id="shader-fs-show" type="x-shader/x-fragment"> 
+
+#ifdef GL_ES
+
+precision highp float;
+
+#endif
+
+  uniform sampler2D uTexSamp;
+  uniform sampler2D vTexSamp;
+    
+  uniform vec2 dotCoord;
+  uniform bool plot;
+
+  varying vec2 vTexCoord;
+  varying vec2 uTexCoord;
+
+void main(void) {
+
+   vec4 t = texture2D(uTexSamp, vTexCoord);
+    float bc =0.;
+
+    
+    if (plot && length(vTexCoord-dotCoord) >.005 && length(vTexCoord-dotCoord) <.01){
+        
+            
+            gl_FragColor = vec4(1.0,  0.0, 0.0, 1.);
+ 
+        
+    }
+    
+    //if (t.g > .5){
+       // gl_FragColor = vec4( 1.,.5,1.,1);
+    //}
+    else{
+   //gl_FragColor = vec4(1., 1., 0., 1.); // map color here
+
+     gl_FragColor = vec4(2.*t.r, t.r, 2.*t.g-.2, 1.);
+    }
+}
+
+</script> 
+
+
+
+<script id="shader-fs" type="x-shader/x-fragment"> 
+
+#ifdef GL_ES
+
+precision highp float;
+
+#endif
+
+  uniform sampler2D uTexSamp;
+  uniform sampler2D vTexSamp;
+  uniform float dt;
+  uniform float dte;
+  uniform float dth2;
+  uniform float a;
+  uniform float nb;
+  uniform float m;
+  uniform float eps;
+
+  uniform int fframes;
+  uniform vec2 vStimCoord;
+  varying vec2 vTexCoord;
+  varying vec2 uTexCoord;
+
+  const float d = 0.001953125; // 1./512.
+
+void main(void) {
+
+   vec4 t = texture2D(uTexSamp, vTexCoord);
+   float u = t.r,  v = t.g,  u2 = t.b,  v2 = t.a;
+   //u += u2/255.;   v += v2/255.;
+   
+   u += u2 * 0.003921568627451;
+   v += v2 * 0.003921568627451;
+   
+   //Ezio: Scaling factors
+   v = v*1.2;
+   u = u*4.;
+
+   /***********************************************************/
+   /*                      KARMA MODEL                        */
+   /***********************************************************/
+
+   //Ezio: Flavio's code
+   //rfunc = (1 - 0.6671 * v) * 1.4990;
+   //float rfunc = (1. -( 1.- exp(-1.1))*v)/(1.- exp(-1.1)) ;
+   //float hfunc1= (exp(u-3.)-exp(-(u-3.)))/(exp(u-3.)+exp(-(u-3.))) ;
+   
+   //Ezio: I took off all the possible divisions and convert all 
+   //      moltiplications
+
+   float sigmoid = 1.0 / (exp(2.0 * (u-3.0)) + 1.0); // (1-tanh(u-3)) * 0.5   
+   float hfunc   = sigmoid * u * u;
+   float ffunc   = -u +(a - pow(v/nb,m))*hfunc ;
+
+   float gfunc = -v;
+   if (u  > 1.0) {   //u-1.0 > 0.0
+       gfunc += 1.4990;
+   } 
+
+   float du= ffunc * eps;      // 1/eps = 0.4
+   float dv= gfunc * 0.0067;   // 1/150 = 0.0067
+   
+   float unew= u + dt*du;
+   float vnew= v + dt*dv;
+
+   /*Ezio: Flavio's code */
+   /*unew += (( texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y + d) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y - d) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x + d, vTexCoord.y) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x - d, vTexCoord.y) ).r +
+
+            (texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y + d) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y - d) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x + d, vTexCoord.y) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x - d, vTexCoord.y) ).b
+
+     )/255.)*4. - 4.*u)*dth2*0.0005;*/
+
+    /*Ezio: Ezio's code */
+      unew += (( texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y + d) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y - d) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x + d, vTexCoord.y) ).r +
+              texture2D(uTexSamp, vec2(vTexCoord.x - d, vTexCoord.y) ).r +
+
+            (texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y + d) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x, vTexCoord.y - d) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x + d, vTexCoord.y) ).b +
+             texture2D(uTexSamp, vec2(vTexCoord.x - d, vTexCoord.y) ).b) 
+           * 0.003921568627451) - u)*dth2*0.0020;
+
+vnew += (( texture2D(vTexSamp, vec2(uTexCoord.x, uTexCoord.y + d) ).r +
+              texture2D(vTexSamp, vec2(uTexCoord.x, uTexCoord.y - d) ).r +
+              texture2D(vTexSamp, vec2(uTexCoord.x + d, uTexCoord.y) ).r +
+              texture2D(vTexSamp, vec2(uTexCoord.x - d, uTexCoord.y) ).r +
+
+            (texture2D(vTexSamp, vec2(uTexCoord.x, uTexCoord.y + d) ).b +
+             texture2D(vTexSamp, vec2(uTexCoord.x, uTexCoord.y - d) ).b +
+             texture2D(vTexSamp, vec2(uTexCoord.x + d, uTexCoord.y) ).b +
+             texture2D(vTexSamp, vec2(uTexCoord.x - d, uTexCoord.y) ).b) 
+           * 0.003921568627451) - v)*dth2*0.000001795;
+
+
+   if (dot(vTexCoord- vStimCoord,vTexCoord- vStimCoord) < 0.0025) {
+      unew = 1.5;
+   }
+
+   if(vTexCoord.x > 0. && vTexCoord.y > 0. && fframes < 900 ){vnew=0.8;}
+   if(vTexCoord.x > .5 && vTexCoord.y > .5 && fframes < 690 ){vnew=1.;}
+   
+
+    unew=unew * 0.25 ;
+    vnew=vnew * 0.8333;
+
+    unew = floor(unew*65025.) * 1.53787004998078e-05;
+
+    vnew = floor(vnew*65025.) * 1.53787004998078e-05;       
+
+    
+
+   u2 = fract(unew*255.);
+
+   //if (u2 > .5) unew -= d;
+
+   unew = unew - u2 * 0.003921568627451;
+
+   v2 = fract(vnew*255.);
+
+   //if (v2 > .5) vnew -= d;
+
+   vnew = vnew - v2 * 0.003921568627451;
+
+   gl_FragColor = vec4(unew, vnew, u2, v2 );
+
+}
+
+</script> 
+
+ 
+
+<script type="text/javascript">
+
+function getShader ( gl, id ){
+
+   var shaderScript = document.getElementById ( id );
+
+   var str = "";
+
+   var k = shaderScript.firstChild;
+
+   while ( k ){
+
+     if ( k.nodeType == 3 ) str += k.textContent;
+
+     k = k.nextSibling;
+
+   }
+
+   var shader;
+
+   if ( shaderScript.type == "x-shader/x-fragment" )
+
+           shader = gl.createShader ( gl.FRAGMENT_SHADER );
+
+   else if ( shaderScript.type == "x-shader/x-vertex" )
+
+           shader = gl.createShader(gl.VERTEX_SHADER);
+
+   else return null;
+
+   gl.shaderSource(shader, str);
+
+   gl.compileShader(shader);
+
+   if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
+
+      alert(gl.getShaderInfoLog(shader));
+
+   return shader;
+
+}
+
+requestAnimFrame = (function(){
+
+  /*return  window.webkitRequestAnimationFrame ||
+
+    window.mozRequestAnimationFrame ||
+
+    function(callback, element){ setTimeout(callback, 1000 / framerate); }*/
+
+    return function(callback, element){ setTimeout(callback, 1000 / framerate); }
+
+})();
+
+
+
+var gl, prog, prog_show, FBO, FBO2, texture, texture2,
+
+    it = 1, frames = 0, time, mappedTexture, fframes =0, 
+
+    b = .04, dt = .15, eps = .02, h = .02, 
+    a = 1.5415, nb = 1.0, m = 7., eps = 0.4, framerate = 200,
+	plot = false, APx=300, APy=200, xc2 = yc2 = 0, ctx2, n=512;
+
+function main() {
+
+   var c = document.getElementById("c");
+
+   c.onmousemove = handleMouseMove;
+
+   c.onmousedown = handleMouseDown;
+
+   c.onmouseup = handleMouseUp;
+
+   c.onmouseout = handleMouseUp;
+
+   if (!window.WebGLRenderingContext){
+
+     alert("Your browser does not support WebGL. See http://get.webgl.org");
+
+     return;}
+
+   try { gl = c.getContext("experimental-webgl");
+
+   } catch(e) {}
+
+   if ( !gl ) {alert("Can't get WebGL"); return;}
+
+
+
+   prog  = gl.createProgram();
+
+   gl.attachShader(prog, getShader( gl, "shader-vs" ));
+
+   gl.attachShader(prog, getShader( gl, "shader-fs" ));
+
+   gl.linkProgram(prog);
+
+   prog_show  = gl.createProgram();
+
+   gl.attachShader(prog_show, getShader( gl, "shader-vs" ));
+
+   gl.attachShader(prog_show, getShader( gl, "shader-fs-show" ));
+
+   gl.linkProgram(prog_show);
+
+
+   /* New for AP */
+   gl.useProgram(prog_show); 
+/* gl.uniform2f(gl.getUniformLocation(prog_show, "coord"), x_plot/n, y_plot/n);  */
+   //gl.uniform2f(gl.getUniformLocation(prog_show, "coord"), APx/n, APy/n);  //TODO check why not working
+   canvas2 = document.getElementById("canvas2");
+   ctx2 = canvas2.getContext("2d");
+   ctx2.lineWidth = 3;
+
+   var posBuffer = gl.createBuffer();
+
+   gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
+
+   var vertices = new Float32Array([-1,-1,0, 1,-1,0, -1,1,0, 1,1,0]);
+
+   var aPosLoc = gl.getAttribLocation(prog, "aPos");
+
+   gl.enableVertexAttribArray( aPosLoc );
+
+   var aTexLoc = gl.getAttribLocation(prog, "aTexCoord");
+
+   gl.enableVertexAttribArray( aTexLoc );
+
+   var texCoords = new Float32Array([0,0, 1,0, 0,1, 1,1]);
+
+   var texCoordOffset = vertices.byteLength;
+
+   gl.bufferData(gl.ARRAY_BUFFER,
+
+       texCoordOffset + texCoords.byteLength, gl.STATIC_DRAW);
+
+   gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertices);
+
+   gl.bufferSubData(gl.ARRAY_BUFFER, texCoordOffset, texCoords);
+
+   gl.vertexAttribPointer(aPosLoc, 3, gl.FLOAT, gl.FALSE, 0, 0);
+
+   gl.vertexAttribPointer(aTexLoc, 2, gl.FLOAT, gl.FALSE, 0, texCoordOffset);
+
+
+
+   texture = gl.createTexture();
+
+   gl.bindTexture(gl.TEXTURE_2D, texture);
+
+   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+   var pixels = [], tSize = 512;
+
+   for(var i = 0; i<tSize; i++)
+
+     for(var j = 0; j<tSize; j++){
+
+       pixels.push( 0 );  pixels.push( 0 );
+
+       pixels.push( 0 );  pixels.push( 0 );
+
+     }
+
+   for(var j = 230; j < 320; j++){
+
+   for(var i = 257; i < 512; i++){
+
+     if (j<270) pixels[4*(j*tSize + i)] = 250;
+
+     //no high v for the moment
+
+     if (j>270) pixels[4*(j*tSize + i) + 1] = 250;
+
+   }
+
+   }
+
+   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tSize, tSize, 0,
+
+     gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(pixels));
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+   texture2 = gl.createTexture();
+
+   gl.bindTexture(gl.TEXTURE_2D, texture2);
+
+   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+
+   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, tSize, tSize, 0,
+
+     gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(pixels));
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+
+   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+   FBO = gl.createFramebuffer();
+
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO);
+
+   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+
+       gl.TEXTURE_2D, texture, 0);
+
+   FBO2 = gl.createFramebuffer();
+
+   gl.bindFramebuffer(gl.FRAMEBUFFER, FBO2);
+
+   gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+
+       gl.TEXTURE_2D, texture2, 0);
+
+   gl.useProgram(prog);
+
+   gl.uniform1f(gl.getUniformLocation(prog, "a"), a);
+   gl.uniform1f(gl.getUniformLocation(prog, "nb"), nb);
+   gl.uniform1f(gl.getUniformLocation(prog, "m"), m);
+   gl.uniform1f(gl.getUniformLocation(prog, "eps"), eps);
+
+   gl.uniform1f(gl.getUniformLocation(prog, "dt"), dt);
+
+   gl.uniform1f(gl.getUniformLocation(prog, "dte"), dt/eps);
+
+   gl.uniform1f(gl.getUniformLocation(prog, "dth2"), dt/(h*h));
+
+   gl.uniform1i(gl.getUniformLocation(prog, "uTexSamp"), 1);
+
+   pos = [-1.,-1.];
+
+   gl.uniform2fv(gl.getUniformLocation(prog, "vStimCoord"), pos);
+
+   gl.useProgram(prog_show);
+    
+   gl.uniform2f(gl.getUniformLocation(prog_show, "dotCoord"), APx/n, APy/n);
+    
+
+   gl.uniform1i(gl.getUniformLocation(prog_show, "uTexSamp"), 1);
+
+   setInterval(fr, 900);
+
+   time = new Date().getTime();
+
+   anim();
+
+}
+
+function draw(){
+
+  gl.uniform2f(gl.getUniformLocation(prog_show, "dotCoord"), APx/n, APy/n);
+   gl.useProgram(prog);
+
+   if (it > 0){
+
+     gl.activeTexture(gl.TEXTURE1);
+
+     gl.bindTexture(gl.TEXTURE_2D, texture);
+
+     gl.activeTexture(gl.TEXTURE0);
+
+     gl.bindFramebuffer(gl.FRAMEBUFFER, FBO2);}
+
+   else{
+
+     gl.activeTexture(gl.TEXTURE1);
+
+     gl.bindTexture(gl.TEXTURE_2D, texture2);
+
+     gl.activeTexture(gl.TEXTURE0);
+
+     gl.bindFramebuffer(gl.FRAMEBUFFER, FBO);}
+
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+   gl.flush();
+
+
+
+   pos = [-1.,-1.];
+
+   gl.uniform2fv(gl.getUniformLocation(prog, "vStimCoord"), pos);
+
+   
+
+   gl.useProgram(prog_show);
+
+   gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+   
+
+gl.useProgram(prog);
+
+     gl.uniform1i(gl.getUniformLocation(prog, "fframes"), fframes);
+
+   
+
+   it = -it;  frames++; fframes++ ;
+
+  
+//       if(fframes < 20){
+
+//   for(var j = 230; j < 320; j++){
+
+//   for(var i = 257; i < 512; i++){
+
+    // if (j<270) pixels[4*(j*tSize + i)] = 250;
+
+     //no high v for the moment
+
+//     if (j>270) pixels[4*(j*tSize + i) + 1] = 250;
+
+//   }
+
+//   }
+
+//                      }
+
+   if(plot){
+
+    var re = new Uint8Array(4);  
+    gl.readPixels(APx, APy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, re);
+   
+    ctx2.beginPath();
+    ctx2.moveTo(xc2, 156 - yc2*.8);
+    xc2 += .5;  yc2 = re[1]*0.7;
+    if(xc2 > 900){
+     xc2 = 0;
+     ctx2.clearRect (0, 0, 900, 156);
+    ctx2.moveTo(xc2, 156 - yc2*.8);
+	}
+    ctx2.lineTo(xc2, 156 - yc2*.8); 
+	ctx2.strokeStyle = "#0000f0";
+    ctx2.stroke();
+
+   }
+	else canvas2.height = 0;
+  
+}
+
+function anim(){
+
+   draw();
+
+   requestAnimFrame(anim);
+
+}
+
+
+
+function fr(){
+
+  var ti = new Date().getTime();
+
+  var fps = Math.round(1000*frames/(ti - time));
+
+  document.getElementById("framerate").innerHTML = " framerate: "+fps+"fps";
+
+document.getElementById("fframes").innerHTML = "Total time: "+fframes*dt;
+
+  frames = 0;  time = ti;
+
+}
+
+
+
+var buttonpressed=false;
+
+function handleMouseMove(event) {
+
+	if (buttonpressed) {
+
+	var c = document.getElementById("c");
+
+	x = event.layerX;
+
+	y = event.layerY;
+
+	pos = [x/512.,1.-y/512.];
+
+	gl.useProgram(prog);
+
+	gl.uniform2fv(gl.getUniformLocation(prog, "vStimCoord"), pos);
+
+	//alert("click" +pos[0] + "/"+ pos[1]);
+
+	}
+
+}
+
+function handleMouseDown(event) {
+
+	buttonpressed = true;
+
+	handleMouseMove(event);
+
+}
+
+function handleMouseUp(event) {
+
+	buttonpressed = false;
+
+}
+
+
+function set_params(new_a, new_nb,new_m, new_eps) {
+	 a   = new_a;
+	 nb  = new_nb;
+         m   = new_m;
+	 eps = new_eps;
+       
+	 document.getElementById("param_a_display").innerHTML=a;
+	 document.getElementById("param_nb_display").innerHTML=nb;
+         document.getElementById("param_m_display").innerHTML=m;
+	 document.getElementById("param_eps_display").innerHTML=eps;
+        
+
+        gl.useProgram(prog);
+	gl.uniform1f(gl.getUniformLocation(prog, "a"),   a);
+        gl.uniform1f(gl.getUniformLocation(prog, "nb"),  1/nb);
+        gl.uniform1f(gl.getUniformLocation(prog, "m"),   m);
+        gl.uniform1f(gl.getUniformLocation(prog, "eps"), eps);
+}
+
+function set_framerate(new_framerate) {
+
+	framerate=new_framerate;
+
+	document.getElementById("framerate_display").innerHTML=framerate;
+
+}
+
+/* New for AP plot */
+function setPlot(v) {
+  plot = v;
+  gl.useProgram(prog_show);
+  gl.uniform1i(gl.getUniformLocation(prog_show, "plot"), plot);
+  if (plot){
+   canvas2.height = 156;
+    xc2 = 0;
+    ctx2.clearRect (0, 0, 900, 156);
+   ctx2.lineWidth = 3;
+   ctx2.moveTo(xc2, 156 - yc2*.8);
+   }
+  else canvas2.height = 0; 
+}
+
+
+function setAPx(v) {
+  APx = parseInt(v);
+    setPlot(plot);
+}
+function setAPy(v) {
+  APy = parseInt(v);
+  setPlot(plot);
+}
+
+</script>
+
+
+
+<style type="text/css">
+
+  H1{ font-size: 120%; color: green}
+
+</style>
+
+</head>
+
+<body onload="main()">
+
+  <canvas id="c" width="512" height="512" style="position:relative"></canvas>
+
+<table border="0">
+
+<tbody>
+
+<tr><td>  a: </td><td>
+    <input type="button" onclick="set_params(Math.round((a+parseFloat(a_inc.value))*100000)/100000.,nb, m, eps)" value="up"/>
+  	<input type="button" onclick="set_params(Math.round((a-parseFloat(a_inc.value))*100000)/100000.,nb, m, eps)" value="down"/>
+        <span id="param_a_display">1.5415</span>
+</td><td>
+increment: <input type="text" id="a_inc" value="0.01"> 
+<td></tr>
+<tr><td>  nb: </td><td>
+    <input type="button" onclick="set_params(a,Math.round((nb+parseFloat(nb_inc.value))*100000)/100000., m, eps)" value="up"/>
+  	<input type="button" onclick="set_params(a,Math.round((nb-parseFloat(nb_inc.value))*100000)/100000., m, eps)" value="down"/>
+        <span id="param_nb_display">1.0</span>
+</td><td>
+increment: <input type="text" id="nb_inc" value="0.01"> 
+<td></tr>
+<tr><td>  m: </td><td>
+    <input type="button" onclick="set_params(a,    nb, Math.round((m+parseFloat(m_inc.value))*100000)/100000., eps)" value="up"/>
+  	<input type="button" onclick="set_params(a,nb, Math.round((m-parseFloat(m_inc.value))*100000)/100000., eps)" value="down"/>
+        <span id="param_m_display">7.</span>
+</td><td>
+increment: <input type="text" id="m_inc" value="0.01"> 
+<td></tr>
+<tr><td>  eps: </td><td>
+    <input type="button" onclick="set_params(a,    nb, m, Math.round((eps+parseFloat(eps_inc.value))*100000)/100000.)" value="up"/>
+  	<input type="button" onclick="set_params(a,nb, m, Math.round((eps-parseFloat(eps_inc.value))*100000)/100000.)" value="down"/>
+        <span id="param_eps_display">0.4</span>
+</td><td>
+increment: <input type="text" id="eps_inc" value="0.01"> 
+<td></tr>
+
+<tr><td>  frame rate throttle: </td><td>
+
+   <input onclick="set_framerate(Math.round((framerate+parseFloat(framerate_inc.value))*100000)/100000.)" value="up" type="button">
+
+   <input onclick="set_framerate(Math.round((framerate-parseFloat(framerate_inc.value))*100000)/100000.)" value="down" type="button">
+
+<span id="framerate_display">200</span>
+
+</td><td>
+
+increment: <input id="framerate_inc" value="10" type="text"> 
+
+</td><td></td></tr>
+<table>
+<tr>
+<img src="./fhnV.png" width="10" height="150">
+
+<canvas id="canvas2" width="900" height="156"></canvas> 
+<center>Time </center>
+</tr> 
+</table>
+<hr>
+<br>
+<table><td>
+<input type="checkbox" onclick="setPlot(checked);" unchecked id="plotBox">Plot Voltage &nbsp; 
+from x: 
+<input size="2" value="300" onchange="setAPx(this.value)">
+and y:
+<input size="2" value="200" onchange="setAPy(this.value)">
+
+</tbody></table>
+
+<div id="framerate"> framerate: 69fps</div>
+
+
+
+<div id="fframes">Total time: 2699.7</div>
+
+<!-- <h1>Barkley's model of an excitable medium</h1>
+
+
+
+<p></p><p>The script starts with <i>a = 0.5, b = 0.04, &#949; = 0.02</i>.
+
+8 bit floating point values (in RGBA textures) are not enough,
+
+therefore floating numbers are stored broken in two cells (bytes).
+
+
+
+</p><p>[1] Dwight Barkley
+
+<i>"A model for fast computer simulation of waves in excitable media"</i>
+
+Physica D 49 (1991) 61-70
+
+
+
+<br>[2] M.Dowle, R.M.Mantel and D.Barkley
+
+<i>"Fast simulations of waves in three-dimensional excitable media"</i>
+
+Int. Journal of Bifurcation and Chaos, Vol. 7, No. 11 (1997) 2529-2545-->
+
+
+
+</p><hr>
+
+
+<hr>
+<br>
+
+</body></html>
+<!-- text below generated by server. PLEASE REMOVE --><!-- Counter/Statistics data collection code --><script language="JavaScript" src="http://l.yimg.com/d/lib/smb/js/hosting/cp/js_source/whv2_001.js"></script><script language="javascript">geovisit();</script><noscript><img src="http://visit.webhosting.yahoo.com/visit.gif?us1377786313" alt="setstats" border="0" width="1" height="1"></noscript>
