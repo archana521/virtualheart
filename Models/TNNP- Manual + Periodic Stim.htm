@@ -387,6 +387,16 @@ var gl, c, FBO0, FBO1, FBO2, FBO3, FBO4, FBO5,
     per1x=100, per1y=300, yesperiod1 = true, timesim=0., yesstim = false,
     stimclicked = false,
     dx=.03, diff1=0.001;
+var max_count = 0;
+var prev = new Uint8Array(4);
+var prev1 = new Uint8Array(4);
+var max_voltage = new Array(); //to store maximum voltages
+var max_time = new Array();   //to store maximum times
+var diff_times = new Array(); // to store differences
+var time_freqs = new Object; //to store frequencies
+var beforeMax = new Object; // to store voltages before the maximum
+var volt_iter = 0; var time_iter = 0; var diff_iter = 0;
+
 function main() {
 	var c = document.getElementById("canvas");
 	var err = "Your browser does not support ";
@@ -774,6 +784,7 @@ function tau(){
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 }
 function draw(){
+	var count = 0;
 	for(var i = 0; i < nit; i++){
 		gl.useProgram(prog0);
 		gl.uniform1i(loc0, 4);
@@ -839,17 +850,62 @@ function draw(){
 
 	if(plot){
 		var re = new Uint8Array(4);
+		//count_plot = count_plot + 1;
 		gl.readPixels(x_plot, y_plot, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, re);
 		ctx2.beginPath();
 		ctx2.moveTo(xc2, 256 - yc2);
-		xc2 += .5;  yc2 = re[0];
+		xc2 += 0.5;  yc2 = re[0];
+		if( prev[0] >prev1[0] && prev[0] > re[0])
+		{
+			alert("maximum"+" "+ xc2 +" "+prev[0]);
+			max_count++;
+			max_voltage[volt_iter++]=prev[0];
+			max_time[time_iter++]=xc2-0.5;
+			if(time_iter!=1)
+			{
+				diff_times[diff_iter++] = max_time[time_iter-1]-max_time[time_iter-2];
+				var check = diff_times[diff_iter-1];
+				if(check in time_freqs)
+					time_freqs[check]++;
+				else
+				{
+					alert("in else");
+					time_freqs[check]=1;
+				}
+			}
+		}
 		if(xc2 > 1000){
 			xc2 = 0;
 			ctx2.clearRect (0, 0, 1000, 256);
 			ctx2.moveTo(xc2, 256 - yc2);}
 		ctx2.lineTo(xc2, 256 - yc2);
 		ctx2.stroke();
+		prev1 = prev;
+		prev = re ;
 	}
+	if(plot1)
+	{
+		//before_max.count has the voltages and the in the nth maxima, and before_max.value has the voltage
+		var value=[180,140,30,340,50,90];
+		var width=10;
+		var currx=10;
+		ctx3.fillStyle="#6699FF";
+		ctx3.strokeStyle="black";
+		ctx3.lineWidth = 1;	
+		var i = 0;
+		var interval = setInterval(function(){
+				if (i == value.length){
+				clearInterval(interval);
+				return;
+				}
+				var h=value[i];
+				ctx3.fillRect(currx,canvas3.height-h,width,h);
+				ctx3.strokeRect(currx, canvas3.height-h,width,h);
+				currx+=width;
+				i++;
+				}, 200);console.log(interval);
+
+	}	
 	frames++;
 }
 function anim(){
@@ -897,10 +953,16 @@ function anim(){
 					gl.RGBA, gl.FLOAT, new Float32Array(data_4));
 			animation = "animate";
 		case "animate":
+		//	var count_plot = 0;
 			if (delay == 0) requestAnimFrame(anim);
 			else setTimeout("requestAnimFrame(anim)", delay);
 			break;
 		case "stop":
+//			alert(count_plot);
+			alert(max_voltage);
+			alert(max_time+"\n"+diff_times);
+			alert(JSON.stringify(time_freqs));
+			
 			break;
 	}
 }
@@ -911,6 +973,7 @@ function run(v) {
 	else{
 		animation = "animate";
 		document.getElementById('runBtn').value = "Stop";
+	//	var count_plot = 0;
 		anim();
 	}
 }
@@ -963,30 +1026,12 @@ function setPlot(v) {
 function setPlot1(v)
 {
 	plot1 = v;
-	if(plot1)
-	{
-		//alert("inside if setplot1");
-		canvas3.height = 256;
-		ctx3.clearRect(0,0,256,256);
-		var value=[180,140,30,340,50,90];
-		var width=10;
-		var currx=10;
-		ctx3.fillStyle="#6699FF";
-		ctx3.strokeStyle="black";
-		ctx3.lineWidth = 1;	
-		var i = 0;
-		var interval = setInterval(function(){
-				if (i == value.length){
-				clearInterval(interval);
-				return;
-				}
-				var h=value[i];
-				ctx3.fillRect(currx,canvas3.height-h,width,h);
-				ctx3.strokeRect(currx, canvas3.height-h,width,h);
-				currx+=width;
-				i++;
-				}, 200);console.log(interval);
-	}
+	if (plot){
+		canvas2.height = 256;
+		xc2 = 0;
+		ctx2.clearRect (0, 0, 500, 256);
+		ctx2.moveTo(xc2, 256 - yc2);}
+	else canvas2.height = 0;
 }
 function setDt(v) {
 
@@ -1089,7 +1134,7 @@ function frr(){
 					<input type="button" onclick="run()" value="Stop" size="1" id="runBtn">
 					<input type="checkbox" onclick="setPath(checked);" checked="" id="pathBox">pAth
 					<input type="checkbox" onclick="setPlot(checked);" checked="" id="plotBox">Plot
-					<input type="checkbox" onclick="setPlot1(checked);" id="plotBox1">Plot1
+					<input type="checkbox" onclick="setPlot1(checked);" checked="" id="plotBox1">Plot1
 					<input type="checkbox" onclick="setVstimcoord(checked);"  id="stimBox">Stimulate
 					</p><p>Check "plot" to draw <i>V(t)</i> 
 
