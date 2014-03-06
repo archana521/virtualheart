@@ -883,7 +883,7 @@ function draw(){
 			{
 				max_voltage[volt_iter++] = re[0];
 				max_time[time_iter++] = xc2;	
-				alert("inside for 0.25");
+				//alert("inside for 0.25");
 				/* getting diff of times and adding to the freqs */
 				if(volt_iter>1)
 				{
@@ -892,48 +892,7 @@ function draw(){
 						var property = Math.abs((max_time[volt_iter-1] - max_time[volt_iter-2]) + 1000);
 						ifEndOfCanvas = 0; 
 
-						if(volt_iter == 5 && plot1)
-						{
-							var value=[180,140,30,340,50,90];
-							var width=10;
-							var currx=10;
-							var x;
-							ctx3.fillStyle="#6699FF";
-							ctx3.strokeStyle="black";
-							ctx3.lineWidth = 1;	
-							var i = 0;
-
-							for(x in time_freqs)
-							{
-								var h = time_freqs[x];
-								alert("range : value " + x +" "+ h); 
-								i++;
-
-							}
-							alert("max_volatge\n"+ max_voltage);
-							alert("max_time\n"+max_time);
-							alert("length = " + time_freqs.length);
-							var count = 0;
-							var interval = setInterval(function(){
-									for(x in time_freqs)
-									{
-									var h=time_freqs[x];
-									h = h * 100;
-									ctx3.fillRect(currx,canvas3.height-h,width,h);
-									ctx3.strokeRect(currx, canvas3.height-h,width,h);
-									ctx3.font = "12px Georgia";
-									ctx3.fillText(time_freqs[x],currx, canvas3.height-h+10);
-									currx+=width;
-									count ++ ;
-									}
-									if (count == i )
-									clearInterval(interval);
-									return;
-
-									}, 200);console.log(interval);
-
-
-						}
+						
 					}
 					else
 						var property = Math.abs((max_time[volt_iter-1] - max_time[volt_iter-2]));
@@ -946,11 +905,11 @@ function draw(){
 						time_freqs[range] = time_freqs[range] + 1;
 					else
 						time_freqs[range] = 1;
-					alert("time_freq of"+" "+range+ " "+time_freqs[range] );
+				//	alert("time_freq of"+" "+range+ " "+time_freqs[range] );
 
 				}
 				/* plotting the frequency bars */
-				if(volt_iter == 5 && plot1)
+		/*		if(volt_iter == 5 && plot1)
 				{
 					var value=[180,140,30,340,50,90];
 					var width=10;
@@ -991,13 +950,59 @@ function draw(){
 							}, 200);console.log(interval);
 
 
-				}
+				}*/
 			}
 		}
 
 
 		if(xc2 > 1000){
 			alert("xc2 > 1000");
+			if(plot1)
+						{
+							var value=[180,140,30,340,50,90];
+							ctx3.clearRect(0,0,500,256);
+							var width=10;
+							var currx=10;
+							var x;
+							ctx3.fillStyle="#6699FF";
+							ctx3.strokeStyle="black";
+							ctx3.lineWidth = 1;	
+							var i = 0;
+
+							for(x in time_freqs)
+							{
+								var h = time_freqs[x];
+								alert("range : value " + x +" "+ h); 
+								i++;
+
+							}
+							alert("max_volatge\n"+ max_voltage);
+							alert("max_time\n"+max_time);
+							alert("length = " + time_freqs.length);
+							var count = 0;
+							var interval = setInterval(function(){
+									for(x in time_freqs)
+									{
+									var h=time_freqs[x];
+									h = h * 10;
+									ctx3.fillRect(currx,canvas3.height-h,width,h-12);
+									ctx3.strokeRect(currx, canvas3.height-h,width,h-12);
+									ctx3.font = "12px Times New Roman";
+									ctx3.fillStyle = "black";
+									ctx3.fillText(time_freqs[x],currx, canvas3.height-h-2);
+									ctx3.fillText(x, currx, canvas3.height);
+									ctx3.fillStyle = "#6699FF";
+									currx+=width+10;
+									count ++ ;
+									}
+									if (count == i )
+									clearInterval(interval);
+									return;
+
+									}, 200);console.log(interval);
+
+
+						}
 			xc2 = 0;
 			ifEndOfCanvas = 1;
 			ctx2.clearRect (0, 0, 1000, 256);
