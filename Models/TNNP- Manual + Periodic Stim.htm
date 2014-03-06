@@ -388,6 +388,8 @@ var gl, c, FBO0, FBO1, FBO2, FBO3, FBO4, FBO5,
     stimclicked = false,
     dx=.03, diff1=0.001;
 var max_count = 0;
+var max_volt = 0;
+var comp_volt = 0;
 var prev = new Uint8Array(4);
 var prev1 = new Uint8Array(4);
 var max_voltage = new Array(); //to store maximum voltages
@@ -396,6 +398,7 @@ var diff_times = new Array(); // to store differences
 var time_freqs = new Object; //to store frequencies
 var beforeMax = new Object; // to store voltages before the maximum
 var volt_iter = 0; var time_iter = 0; var diff_iter = 0;
+var ifEndOfCanvas = 0;
 
 function main() {
 	var c = document.getElementById("canvas");
@@ -855,27 +858,148 @@ function draw(){
 		ctx2.beginPath();
 		ctx2.moveTo(xc2, 256 - yc2);
 		xc2 += 0.5;  yc2 = re[0];
-		if( prev[0] >prev1[0] && prev[0] > re[0])
+
+		/*get the average maximum voltage*/
+
+		if( prev[0] >prev1[0] && prev[0] > re[0] && max_count<3)
 		{
-			alert("maximum"+" "+ xc2 +" "+prev[0]);
-			max_count++;
-			max_voltage[volt_iter++]=prev[0];
-			max_time[time_iter++]=xc2-0.5;
-			if(time_iter!=1)
+
+			//			alert("maximum"+" "+ xc2 +" "+prev[0]);
+
+			if(max_count < 2)
+				max_volt = max_volt + prev[0];
+			if(max_count == 1)
 			{
-				diff_times[diff_iter++] = max_time[time_iter-1]-max_time[time_iter-2];
-				var check = diff_times[diff_iter-1];
-				if(check in time_freqs)
-					time_freqs[check]++;
-				else
+				max_volt = max_volt/2;
+				comp_volt = 0.25 * max_volt;
+			}
+			max_count++;
+			//			alert("max_volt ="+max_volt)
+		}
+
+		if(max_count>=2)
+		{
+			if(re[0]>prev[0] && ((re[0]-comp_volt)*(prev[0]-comp_volt)) < 0 )
+			{
+				max_voltage[volt_iter++] = re[0];
+				max_time[time_iter++] = xc2;	
+				alert("inside for 0.25");
+				/* getting diff of times and adding to the freqs */
+				if(volt_iter>1)
 				{
-					alert("in else");
-					time_freqs[check]=1;
+					if(ifEndOfCanvas)
+					{
+						var property = Math.abs((max_time[volt_iter-1] - max_time[volt_iter-2]) + 1000);
+						ifEndOfCanvas = 0; 
+
+						if(volt_iter == 5 && plot1)
+						{
+							var value=[180,140,30,340,50,90];
+							var width=10;
+							var currx=10;
+							var x;
+							ctx3.fillStyle="#6699FF";
+							ctx3.strokeStyle="black";
+							ctx3.lineWidth = 1;	
+							var i = 0;
+
+							for(x in time_freqs)
+							{
+								var h = time_freqs[x];
+								alert("range : value " + x +" "+ h); 
+								i++;
+
+							}
+							alert("max_volatge\n"+ max_voltage);
+							alert("max_time\n"+max_time);
+							alert("length = " + time_freqs.length);
+							var count = 0;
+							var interval = setInterval(function(){
+									for(x in time_freqs)
+									{
+									var h=time_freqs[x];
+									h = h * 100;
+									ctx3.fillRect(currx,canvas3.height-h,width,h);
+									ctx3.strokeRect(currx, canvas3.height-h,width,h);
+									ctx3.font = "12px Georgia";
+									ctx3.fillText(time_freqs[x],currx, canvas3.height-h+10);
+									currx+=width;
+									count ++ ;
+									}
+									if (count == i )
+									clearInterval(interval);
+									return;
+
+									}, 200);console.log(interval);
+
+
+						}
+					}
+					else
+						var property = Math.abs((max_time[volt_iter-1] - max_time[volt_iter-2]));
+					var range = Math.floor(property/10) * 10;
+					if(property%10 > 5)
+						range = range + 5;
+
+
+					if(range in time_freqs)
+						time_freqs[range] = time_freqs[range] + 1;
+					else
+						time_freqs[range] = 1;
+					alert("time_freq of"+" "+range+ " "+time_freqs[range] );
+
+				}
+				/* plotting the frequency bars */
+				if(volt_iter == 5 && plot1)
+				{
+					var value=[180,140,30,340,50,90];
+					var width=10;
+					var currx=10;
+					var x;
+					ctx3.fillStyle="#6699FF";
+					ctx3.strokeStyle="black";
+					ctx3.lineWidth = 1;	
+					var i = 0;
+
+					for(x in time_freqs)
+					{
+						var h = time_freqs[x];
+						alert("range : value " + x +" "+ h); 
+						i++;
+
+					}
+					alert("max_volatge\n"+ max_voltage);
+					alert("max_time\n"+max_time);
+					alert("length = " + time_freqs.length);
+					var count = 0;
+					var interval = setInterval(function(){
+							for(x in time_freqs)
+							{
+							var h=time_freqs[x];
+							h = h * 100;
+							ctx3.fillRect(currx,canvas3.height-h,width,h);
+							ctx3.strokeRect(currx, canvas3.height-h,width,h);
+							ctx3.font = "12px Georgia";
+							ctx3.fillText(time_freqs[x],currx, canvas3.height-h+10);
+							currx+=width;
+							count ++ ;
+							}
+							if (count == i )
+							clearInterval(interval);
+							return;
+
+							}, 200);console.log(interval);
+
+
 				}
 			}
 		}
+
+
 		if(xc2 > 1000){
+			alert("xc2 > 1000");
 			xc2 = 0;
+			ifEndOfCanvas = 1;
 			ctx2.clearRect (0, 0, 1000, 256);
 			ctx2.moveTo(xc2, 256 - yc2);}
 		ctx2.lineTo(xc2, 256 - yc2);
@@ -883,29 +1007,7 @@ function draw(){
 		prev1 = prev;
 		prev = re ;
 	}
-	if(plot1)
-	{
-		//before_max.count has the voltages and the in the nth maxima, and before_max.value has the voltage
-		var value=[180,140,30,340,50,90];
-		var width=10;
-		var currx=10;
-		ctx3.fillStyle="#6699FF";
-		ctx3.strokeStyle="black";
-		ctx3.lineWidth = 1;	
-		var i = 0;
-		var interval = setInterval(function(){
-				if (i == value.length){
-				clearInterval(interval);
-				return;
-				}
-				var h=value[i];
-				ctx3.fillRect(currx,canvas3.height-h,width,h);
-				ctx3.strokeRect(currx, canvas3.height-h,width,h);
-				currx+=width;
-				i++;
-				}, 200);console.log(interval);
 
-	}	
 	frames++;
 }
 function anim(){
@@ -953,16 +1055,16 @@ function anim(){
 					gl.RGBA, gl.FLOAT, new Float32Array(data_4));
 			animation = "animate";
 		case "animate":
-		//	var count_plot = 0;
+			//	var count_plot = 0;
 			if (delay == 0) requestAnimFrame(anim);
 			else setTimeout("requestAnimFrame(anim)", delay);
 			break;
 		case "stop":
-//			alert(count_plot);
-			alert(max_voltage);
-			alert(max_time+"\n"+diff_times);
-			alert(JSON.stringify(time_freqs));
-			
+			//			alert(count_plot);
+			//		alert("max_volatages\n" + max_voltage);
+			//		alert("max_time\n"+max_time);
+			alert("time freqs\n"+JSON.stringify(time_freqs));
+
 			break;
 	}
 }
@@ -973,7 +1075,7 @@ function run(v) {
 	else{
 		animation = "animate";
 		document.getElementById('runBtn').value = "Stop";
-	//	var count_plot = 0;
+		//	var count_plot = 0;
 		anim();
 	}
 }
@@ -1141,7 +1243,7 @@ function frr(){
 					</p><hr>
 					<img src="./TNNP model. Spiral tip dynamics perriodic_files/colorbartnnp.gif">
 
-					<canvas id="canvas2" width="500" height="256"></canvas>
+					<canvas id="canvas2" width="1000" height="256"></canvas><p>
 					<canvas id="canvas3" width="500" height="256"></canvas>
 
 					<br>
